@@ -255,13 +255,15 @@ class CSVTable(object):
     self.path = None
     self.delimiter = ','
     self.comment = '#'
-    self.eol = ('\r','\n')
+    self.eol = ('\n','\r')
     self.error = ''
     self.header = list()
     self.indices = dict()
+    self.rows = list()
+    self.row_index = 0
 
   def readyCheck(self):
-    if None is self.file:
+    if None is self.file and 0 == len(self.rows):
       raise UninitializedTable("Table file is not open")
 
   def delimit(self,s):
@@ -308,8 +310,7 @@ class CSVTable(object):
     except Exception as e:
       self.error = str(e)
 
-  # FIXME: This isn't thread safe, we should put a lock around the file?
-  def save(self,path):
+  def copy(self,path):
     self.readyCheck() 
     if path == self.path:
       raise TableException("Won't write over myself")
@@ -342,7 +343,11 @@ class CSVTable(object):
     count = 0
     while True:
       count += 1
-      line = self.file.readline()
+      if None is not self.file:
+          line = self.file.readline()
+      elif len(self.rows) > 0:
+          line = self.rows[row_index]
+          row_index += 1
       if 0 == len(line):
         break
       if line.startswith(self.comment) or line.startswith(self.eol):
@@ -357,7 +362,11 @@ class CSVTable(object):
     rv = None
     self.readyCheck() 
     while True:
-      line = self.file.readline()
+      if None is not self.file:
+        line = self.file.readline()
+      elif len(self.rows) > 0:
+          line = self.rows[row_index]
+          row_index += 1
       if 0 == len(line):
         break
       if line.startswith(self.comment) or line.startswith(self.eol):
@@ -375,6 +384,12 @@ class CSVTable(object):
       self.file.close()
       self.file = None
 
+  def setHeader(self,v):
+    if isinstance(v,list):
+      self.header = v
+    else:
+      raise TypeError('Header should be a list of strings')
+
   def addHeaderLabel(self,v):
     self.header.append(v)
     idx = 0
@@ -386,10 +401,22 @@ class CSVTable(object):
   def getHeader(self):
     return self.header
 
+  def appendRow(self,v):
+    if isinstance(v,list):
+      if len(v) == len(self.header):
+        self.rows.append(v)
+      else:
+        raise InvalidRow('Length of row: ' + str(len(v)) + ', Length of header: ' + str(len(self.header)))
+    else:
+      raise TypeError('Header should be a list of strings')
+
   def reset(self):
     self.readyCheck()
-    self.close()
-    return self.load(self.path)
+    if None is not self.file:
+        self.close()
+        self.load(self.path)
+    else:
+        self.row_index = 0
 
   def getHeaderIndex(self,label):
     rv = -1
