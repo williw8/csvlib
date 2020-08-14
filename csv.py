@@ -310,23 +310,48 @@ class CSVTable(object):
     except Exception as e:
       self.error = str(e)
 
+  def save(self,path):
+    self.readyCheck() 
+    if path == self.path:
+      raise TableException("Won't write over myself")
+    else:
+      with open(path,'wb') as fout:
+        idx = 0
+        for label in self.header:
+          fout.write(label)
+          if idx == (len(self.header)-1):
+            fout.write(self.eol[0])
+          else:
+            fout.write(self.delimiter)
+          idx += 1
+        for row in self.rows:
+            idx = 0
+            for v in row:
+              if len(v) > 0:
+                fout.write(v)
+              if idx == (len(row)-1):
+                fout.write(self.eol[0])
+              else:
+                fout.write(self.delimiter)
+              idx += 1
+
   def copy(self,path):
     self.readyCheck() 
     if path == self.path:
       raise TableException("Won't write over myself")
     else:
       where = self.file.tell()
-      table = self.load()
+      self.load()
       with open(path,'wb') as fout:
         idx = 0
-        for label in table.header:
+        for label in self.header:
           fout.write(label)
-          if idx == (len(table.header)-1):
+          if idx == (len(self.header)-1):
             fout.write(self.eol)
           else:
             fout.write(self.delimiter)
           idx += 1
-        for row in table.getIter():
+        for row in self.rows:
             idx = 0
             for v in row:
               if len(v) > 0:
